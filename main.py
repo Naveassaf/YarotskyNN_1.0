@@ -10,10 +10,17 @@ import numpy as np
 import sympy.parsing.sympy_parser as parser
 import sympy as sy
 
+# TODO: COMMENT OUT FOR WINDOWS (questionable patch)
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+# TODO: END
+
 # CONSTANTS
 func_expression = ''
 sy_x = sy.Symbol('x')
 DEFAULT_POLY_DEGREE = 10
+
+
 
 def func(x):
     '''
