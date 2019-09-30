@@ -264,7 +264,7 @@ def example_bumps():
     plt.show()
 
 def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
-                      yar_init=True, tf_squaring_modules=False, train_polynomial=True):
+                      yar_init=True, tf_squaring_modules=False, train_polynomial=True, train_bumps=True):
     tf_graph = tf.Graph()
 
     with tf_graph.as_default():
@@ -280,7 +280,8 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
     bump_outputs = []
 
     for index in range(N+1):
-        bump_dict[index] = Bump(N, index, naming_postfix='bump'+str(index), graph=tf_graph, input_placeholder=input_PH, yarotsky_initialization=True, ud_relus=False)
+        bump_dict[index] = Bump(N, index, naming_postfix='bump'+str(index), graph=tf_graph, input_placeholder=input_PH,
+                                yarotsky_initialization=True, ud_relus=False, trainable=train_bumps)
         bump_outputs.append(bump_dict[index].final_output)
 
         current_coeffs, sympy_taylor_dict[index] = example_taylor(taylor_x0=bump_dict[index].bump_center, polynomial_degree=taylor_degree)
@@ -455,10 +456,12 @@ if __name__ == '__main__':
     # example_polynomial(coeffs, sampling_resolution=1e-7, sympy_poly=taylor_poly, net_degree=6, tf_squaring_modules=True, trainable=False)
     # --------------------------------------------------
     mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, composite_degree=6,
-                                                                sampling_res=1e-7,learning_rate=1e-5, train_polynomial=True)
+                                                                sampling_res=1e-7,learning_rate=1e-3,
+                                                                train_polynomial=True, train_bumps=False)
     print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
     mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, composite_degree=6,
-                                                                sampling_res=1e-7,learning_rate=1e-5, train_polynomial=False)
+                                                                sampling_res=1e-7,learning_rate=1e-3,
+                                                                train_polynomial=False, train_bumps=True)
     print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
     # --------------------------------------------------
     # example_bumps()

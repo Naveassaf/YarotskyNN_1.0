@@ -8,7 +8,7 @@ BUMP_FUNCTION_WIDTH = 4
 
 class Bump():
     def __init__(self, N, bump_index, naming_postfix, input_placeholder=None, graph=None, yarotsky_initialization=False,
-                 ud_relus=USE_UNDYING_RELU):
+                 ud_relus=USE_UNDYING_RELU, trainable=True):
             # Naming convention prefix to prevent naming clashes with other blocks in tf_graph
             self.naming_postfix = naming_postfix
 
@@ -37,6 +37,9 @@ class Bump():
 
             # Create empty dict to save variables for pickling trained models. Dict (key, val) = (name, tf.variable)
             self.variable_dict = {}
+
+            # If False, the bumps wioll retain their original shape throughout entire training session
+            self.trainable = trainable
 
             # Prepare input placeholder
             with self.tf_graph.as_default():
@@ -87,15 +90,15 @@ class Bump():
         if first:
             # Create variable for first weights in current neuron
             if self.yarotsky_initialization:
-                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer)
+                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
             else:
-                var = tf.get_variable(name=name, dtype=tf.float32, shape=[1, BUMP_FUNCTION_WIDTH], initializer=initer)
+                var = tf.get_variable(name=name, dtype=tf.float32, shape=[1, BUMP_FUNCTION_WIDTH], initializer=initer, trainable=self.trainable)
         else:
             # Create variable for second weights in current neuron
             if self.yarotsky_initialization:
-                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer)
+                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
             else:
-                var = tf.get_variable(name=name, dtype=tf.float32, shape=[BUMP_FUNCTION_WIDTH, 1], initializer=initer)
+                var = tf.get_variable(name=name, dtype=tf.float32, shape=[BUMP_FUNCTION_WIDTH, 1], initializer=initer, trainable=self.trainable)
 
         # Store in dictionary for saving trained net
         self.variable_dict[name] = var
@@ -133,7 +136,7 @@ class Bump():
             initial = tf.constant(1, shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float32)
 
         # Create variable
-        var = tf.get_variable(name=name, dtype=tf.float32, initializer=initial)
+        var = tf.get_variable(name=name, dtype=tf.float32, initializer=initial, trainable=self.trainable)
 
         # Store in dictionary for pickling
         self.variable_dict[name] = var
