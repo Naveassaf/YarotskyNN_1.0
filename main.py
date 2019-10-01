@@ -4,7 +4,7 @@ from x_times_y import XY
 from bump import Bump
 from net_master import NetMaster
 from tf_polynomial import TFPolynomial
-from power_bump import PowerBump
+from rigid_bump import RigidBump
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -266,16 +266,15 @@ def example_bumps():
     plt.plot(inputs, out, color='y')
     plt.show()
 
-def example_power_bumps():
+def example_rigid_bumps():
     ''''
     Example of creating and ploting bump functions for N = 3
     '''
 
-    bump0 = PowerBump(3, 0, '0_bump',  ud_relus=False)
-    bump1 = PowerBump(3, 1, '1_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
-    bump2 = PowerBump(3, 2, '2_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
-    bump3 = PowerBump(3, 3, '3_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
-    bump_list = [bump0, bump1, bump2, bump3]
+    bump0 = RigidBump(3, 0, '0_bump',  ud_relus=False)
+    bump1 = RigidBump(3, 1, '1_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
+    bump2 = RigidBump(3, 2, '2_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
+    bump3 = RigidBump(3, 3, '3_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
 
     # Create output placehoder to be used by master for training.
     with bump0.tf_graph.as_default():
@@ -284,34 +283,34 @@ def example_power_bumps():
     # Create master which will train and evaluate polynomial network.
     master = NetMaster(tf_graph=bump0.tf_graph, function=func, net_output=bump2.final_output,
                        input_placeholder=bump0.input_placeholder, output_placeholder=output_placeholder,
-                       sampling_resolution=1e-7, learning_rate=1e-3, power_mode=True, pwr_bump_lst=bump_list,
-                       pwr_poly_lst=bump_list)
+                       sampling_resolution=1e-7, learning_rate=1e-3)
+
 
     # Graph polynomial function
     inputs = np.arange(0, 1, 0.001)
     plt.figure(1)
-    out = master.evaluate(inputs, node=bump0.final_output)
-    plt.plot(inputs, out, color='r')
-    out = master.evaluate(inputs, node=bump1.final_output)
-    plt.plot(inputs, out, color='g')
     out = master.evaluate(inputs, node=bump2.final_output)
-    plt.plot(inputs, out, color='b')
-    out = master.evaluate(inputs, node=bump3.final_output)
-    plt.plot(inputs, out, color='y')
+    plt.plot(inputs, out, color='r')
+    # out = master.evaluate(inputs, node=bump1.final_output)
+    # plt.plot(inputs, out, color='g')
+    # out = master.evaluate(inputs, node=bump2.final_output)
+    # plt.plot(inputs, out, color='b')
+    # out = master.evaluate(inputs, node=bump3.final_output)
+    # plt.plot(inputs, out, color='y')
 
 
     # Train second Bump to func() and plot again. Check that only first 3 elements are updated
     master.train()
 
     plt.figure(2)
-    out = master.evaluate(inputs, node=bump0.final_output)
-    plt.plot(inputs, out, color='r')
-    out = master.evaluate(inputs, node=bump1.final_output)
-    plt.plot(inputs, out, color='g')
     out = master.evaluate(inputs, node=bump2.final_output)
-    plt.plot(inputs, out, color='b')
-    out = master.evaluate(inputs, node=bump3.final_output)
-    plt.plot(inputs, out, color='y')
+    plt.plot(inputs, out, color='r')
+    # out = master.evaluate(inputs, node=bump1.final_output)
+    # plt.plot(inputs, out, color='g')
+    # out = master.evaluate(inputs, node=bump2.final_output)
+    # plt.plot(inputs, out, color='b')
+    # out = master.evaluate(inputs, node=bump3.final_output)
+    # plt.plot(inputs, out, color='y')
     plt.plot(inputs, func(inputs), color='m')
     plt.show()
 
@@ -418,7 +417,7 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
     return mse_before_training, mse_after_training
 
 def spline_tf_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
-                      ud_relus=False, train_polynomial=True):
+                      ud_relus=False, train_polynomial=True, train_bumps=True, taylor_init=True):
 
     tf_graph = tf.Graph()
 
@@ -436,7 +435,7 @@ def spline_tf_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7, le
 
     for index in range(N+1):
         bump_dict[index] = Bump(N, index, naming_postfix='bump'+str(index), graph=tf_graph, input_placeholder=input_PH,
-                                ud_relus=False, yarotsky_initialization=True, trainable=True)
+                                ud_relus=False, yarotsky_initialization=True, trainable=train_bumps)
         bump_outputs.append(bump_dict[index].final_output)
 
 
@@ -444,8 +443,14 @@ def spline_tf_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7, le
 
         print('index: {}, around: {}, poly {}'.format(index,bump_dict[index].bump_center, sympy_taylor_dict[index]))
 
-        poly_dict[index] = TFPolynomial(naming_postfix='poly'+str(index), coefficients=current_coeffs,
-                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph)
+        if not taylor_init:
+            poly_dict[index] = TFPolynomial(naming_postfix='poly'+str(index), coefficients=[],
+                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph, trainable=train_polynomial,
+                                        polynomial_degree=len(current_coeffs))
+        else:
+            poly_dict[index] = TFPolynomial(naming_postfix='poly' + str(index), coefficients=current_coeffs,
+                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph, trainable=train_polynomial)
+
         poly_outputs.append(poly_dict[index].final_output)
 
     bump_vector = tf.concat(bump_outputs, name='bump_vector', axis=1)
@@ -457,7 +462,7 @@ def spline_tf_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7, le
     # Create master which will train and evaluate spline polynomial network.
     master = NetMaster(tf_graph=tf_graph, function=func, net_output=net_output,
                            input_placeholder=input_PH, output_placeholder=output_PH,
-                           sampling_resolution=sampling_res, learning_rate=learning_rate, trainable_net=train_polynomial)
+                           sampling_resolution=sampling_res, learning_rate=learning_rate, trainable_net=train_polynomial or train_bumps)
 
     mse_before_training = master.calc_mse(func)
     plt.figure(1)
@@ -646,18 +651,19 @@ if __name__ == '__main__':
 
     # --------------------------------------------------
     # ~~ POWER SPLINE BASED ON FUNCTION
-    mse_before_training, mse_after_training = spline_tf_polynomial(N=3, taylor_degree=4, sampling_res=1e-7,learning_rate=1e-3,
-                                                                      ud_relus=False, train_polynomial=True)
-    print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
-
-    # mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, sampling_res=1e-6,learning_rate=1e-3,
-    #                                                             composite_degree=6, yar_init=True, train_polynomial=True, train_bumps=True)
+    # mse_before_training, mse_after_training = spline_tf_polynomial(N=3, taylor_degree=4, sampling_res=1e-7,learning_rate=1e-3,
+    #                                                                   ud_relus=False, train_polynomial=False, train_bumps=True)
+    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    #
+    # mse_before_training, mse_after_training = spline_tf_polynomial(N=3, taylor_degree=4, sampling_res=5e-6,learning_rate=1e-3,
+    #                                                                   ud_relus=False, train_polynomial=True, train_bumps=True,
+    #                                                                taylor_init=False)
     # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
 
 
     # -------------------------------------------------
-    # ~~ POWER BUMPS
-    # example_power_bumps()
+    # ~~ RIGID BUMPS
+    example_rigid_bumps()
     #
 
 

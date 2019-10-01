@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-import UndyingReLU
+import Additional_Sources.UndyingReLU as UndyingReLU
 
 def dense(input_layer, units, name=None):
     return tf.layers.dense(
@@ -61,9 +61,9 @@ for i in xrange(500):
     if np.mod(i,200) in [0, 1,199]:
         casualty_report, _, _, _, _ = UndyingReLU.measure_dead_neurons(sess, feed_dict, after_life_support=False)
         casualty_report_with_life_support, _, _, _, _ = UndyingReLU.measure_dead_neurons(sess, feed_dict, after_life_support=True)
-        print "iteration %d" % i
-        print "Num of Dead Neurons without life support: %d" % casualty_report['total_dead']
-        print "Num of Dead Neurons with life support: %d" % casualty_report_with_life_support['total_dead']
+        print("iteration %d" % i)
+        print("Num of Dead Neurons without life support: %d" % casualty_report['total_dead'])
+        print("Num of Dead Neurons with life support: %d" % casualty_report_with_life_support['total_dead'])
 
     sess.run([solver], feed_dict=feed_dict)
 
