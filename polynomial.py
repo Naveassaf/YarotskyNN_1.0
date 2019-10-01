@@ -35,7 +35,7 @@ class Polynomial():
 
         if input_placeholder == None:
             with self.tf_graph.as_default():
-                self.input_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name=self.naming_postfix+'_input_placeholder')
+                self.input_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name=self.naming_postfix+'_input_placeholder')
         else:
             self.input_placeholder = input_placeholder
 
@@ -50,7 +50,7 @@ class Polynomial():
 
                 # Deal with constant (X^0)
                 if monomial_degree == 0:
-                    self.constant_tensor = tf.constant(value=self.coefficients[0], shape=[1, 1], dtype=tf.float32)
+                    self.constant_tensor = tf.constant(value=self.coefficients[0], shape=[1, 1], dtype=tf.float64)
                     self.monomial_outputs.append(self.constant_tensor)
 
                 # Deal with X^1
@@ -80,7 +80,7 @@ class Polynomial():
             self.monomial_tensor = tf.concat(self.monomial_outputs[1:], name=self.naming_postfix+'_monomial_vector', axis=1)
 
             # Create coefficient tensor without constant (which will be added after)
-            coefficient_tensor = tf.constant(value=self.coefficients[1:], shape=[len(self.coefficients)-1, 1], dtype=tf.float32)
+            coefficient_tensor = tf.constant(value=self.coefficients[1:], shape=[len(self.coefficients)-1, 1], dtype=tf.float64)
 
             matmul = tf.matmul(self.monomial_tensor, coefficient_tensor, name=self.naming_postfix+'_output')
 

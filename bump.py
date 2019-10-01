@@ -45,7 +45,7 @@ class Bump():
             with self.tf_graph.as_default():
                 # Create place holder to be used to feed network its inputs
                 if input_placeholder == None:
-                    self.input_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='input_placeholder')
+                    self.input_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='input_placeholder')
                 else:
                     self.input_placeholder = input_placeholder
 
@@ -90,15 +90,15 @@ class Bump():
         if first:
             # Create variable for first weights in current neuron
             if self.yarotsky_initialization:
-                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, initializer=initer, trainable=self.trainable)
             else:
-                var = tf.get_variable(name=name, dtype=tf.float32, shape=[1, BUMP_FUNCTION_WIDTH], initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, shape=[1, BUMP_FUNCTION_WIDTH], initializer=initer, trainable=self.trainable)
         else:
             # Create variable for second weights in current neuron
             if self.yarotsky_initialization:
-                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, initializer=initer, trainable=self.trainable)
             else:
-                var = tf.get_variable(name=name, dtype=tf.float32, shape=[BUMP_FUNCTION_WIDTH, 1], initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, shape=[BUMP_FUNCTION_WIDTH, 1], initializer=initer, trainable=self.trainable)
 
         # Store in dictionary for saving trained net
         self.variable_dict[name] = var
@@ -116,9 +116,9 @@ class Bump():
         slope = 1.0/self.relu_offset
 
         if first:
-            return tf.constant(value=np.array([1, 1, 1, 1]), shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float32, name=name)
+            return tf.constant(value=np.array([1, 1, 1, 1]), shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float64, name=name)
         else:
-            return tf.constant(value=np.array([slope, -slope, -slope, slope]), shape=[BUMP_FUNCTION_WIDTH, 1], dtype=tf.float32, name=name)
+            return tf.constant(value=np.array([slope, -slope, -slope, slope]), shape=[BUMP_FUNCTION_WIDTH, 1], dtype=tf.float64, name=name)
 
     def get_bump_biases(self, name):
         '''
@@ -133,10 +133,10 @@ class Bump():
         if self.yarotsky_initialization:
             initial = self.get_bump_biases_yarotsky_init(name)
         else:
-            initial = tf.constant(1, shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float32)
+            initial = tf.constant(1, shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float64)
 
         # Create variable
-        var = tf.get_variable(name=name, dtype=tf.float32, initializer=initial, trainable=self.trainable)
+        var = tf.get_variable(name=name, dtype=tf.float64, initializer=initial, trainable=self.trainable)
 
         # Store in dictionary for pickling
         self.variable_dict[name] = var
@@ -153,4 +153,4 @@ class Bump():
 
         return tf.constant(value=np.array([-(self.bump_center-2*self.relu_offset), -(self.bump_center-self.relu_offset),
                                            -(self.bump_center+self.relu_offset), -(self.bump_center+2*self.relu_offset)]),
-                                            shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float32, name=name)
+                                            shape=[1, BUMP_FUNCTION_WIDTH], dtype=tf.float64, name=name)

@@ -61,11 +61,11 @@ def example_x_squared():
     # Using matmul, add outputs of the two x^2 blocks, multiplying by 2, 1 respectively
     with block1.tf_graph.as_default():
         # Create output placeholder to be passed to the NetMaster for training
-        output_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='output_placeholder')
+        output_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
 
         # Concatenate the outputs into one tensor. Create a vecotr to multiply them by and get the final output
         linker = tf.concat(block_outputs, name='block_outputs', axis=1)
-        final_output = tf.matmul(linker, tf.constant(value=np.array([2.0, 1.0]), shape=[2, 1], dtype=tf.float32))
+        final_output = tf.matmul(linker, tf.constant(value=np.array([2.0, 1.0]), shape=[2, 1], dtype=tf.float64))
 
     # Create NetMaster module to evaluate the created graph. Evaluate at point x (input parameter
     master = NetMaster(tf_graph=block1.tf_graph, function=func, net_output=final_output,
@@ -89,13 +89,13 @@ def example_x_times_y():
     graph = tf.Graph()
     with graph.as_default():
         # Create input place holder - "x" value
-        x_input_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='input_placeholder')
+        x_input_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='input_placeholder')
 
         # Add some const. to X to create Y.
-        y_input_placeholder = tf.add(x_input_placeholder, tf.constant(value=0.2, shape=[1, 1], dtype=tf.float32))
+        y_input_placeholder = tf.add(x_input_placeholder, tf.constant(value=0.2, shape=[1, 1], dtype=tf.float64))
 
         # Prep output placeholder for training
-        output_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='output_placeholder')
+        output_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
 
     # Create xy object
     xy = XY(4, 'tester',input_placeholder_x=x_input_placeholder, input_placeholder_y=y_input_placeholder, graph=graph,
@@ -114,7 +114,7 @@ def example_x_times_y():
     print(master.calc_mse(func))
 
     feed_dict = {}
-    feed_dict[x_input_placeholder] = np.array(inputs, dtype='float32').reshape((1, 1))
+    feed_dict[x_input_placeholder] = np.array(inputs, dtype='float64').reshape((1, 1))
     plt.plot(graphs_xs, master.evaluate(graphs_xs), color = 'r') # Plot before training
     # print(master.sess.run([x_input_placeholder, y_input_placeholder], feed_dict=feed_dict))
     master.train()
@@ -141,7 +141,7 @@ def example_polynomial(coefficients, net_degree=10, learning_rate=1e-3, sampling
 
     # Create output placehoder to be used by master for training.
     with poly.tf_graph.as_default():
-        output_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='output_placeholder')
+        output_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
 
     # Create master which will train and evaluate polynomial network.
     master = NetMaster(tf_graph=poly.tf_graph, function=func,net_output=poly.final_output,
@@ -216,7 +216,7 @@ def example_taylor(taylor_x0, polynomial_degree=DEFAULT_POLY_DEGREE, print_to_co
 
     # Return the calculated coefficients
     coeffs = sympy_poly.all_coeffs()
-    coeffs = np.array(coeffs).astype(np.float32)
+    coeffs = np.array(coeffs).astype(np.float64)
     return [coeffs[::-1], sympy_poly]
 
 def example_bumps():
@@ -231,7 +231,7 @@ def example_bumps():
 
     # Create output placehoder to be used by master for training.
     with bump0.tf_graph.as_default():
-        output_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='output_placeholder')
+        output_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
 
     # Create master which will train and evaluate polynomial network.
     master = NetMaster(tf_graph=bump0.tf_graph, function=func, net_output=bump1.final_output,
@@ -268,8 +268,8 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
     tf_graph = tf.Graph()
 
     with tf_graph.as_default():
-        input_PH = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='input_placeholder')
-        output_PH = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='output_placeholder')
+        input_PH = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='input_placeholder')
+        output_PH = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
 
     sympy_taylor_dict = {}
 
@@ -297,7 +297,7 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
     poly_vector = tf.concat(poly_outputs, name='poly_vector', axis=1)
     with tf_graph.as_default():
         temp = tf.multiply(bump_vector, poly_vector)
-        net_output = tf.matmul(temp, tf.constant(value=np.ones([N+1, 1]), shape=[N+1, 1], dtype=tf.float32))
+        net_output = tf.matmul(temp, tf.constant(value=np.ones([N+1, 1]), shape=[N+1, 1], dtype=tf.float64))
 
     # Create master which will train and evaluate spline polynomial network.
     master = NetMaster(tf_graph=tf_graph, function=func, net_output=net_output,
@@ -329,6 +329,21 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
         plt.plot(inputs, master.evaluate(inputs), color = 'g', linewidth=1.0)
 
     master.train(print_to_console=True)
+
+
+    #TODO ERASE:
+    for index in range(N+1):
+        if index == 0:
+            inputs = np.arange(0,half_range_width, 0.001)
+            range_start = half_range_width
+        elif index == N:
+            inputs = np.arange(range_start, 1.001, 0.001)
+        else:
+            inputs = np.arange(range_start, range_start+2*half_range_width, 0.001)
+            range_start += 2*half_range_width
+
+        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color = 'y', linewidth=1.0)
+    #TODO: END
 
     mse_after_training = master.calc_mse(func)
     if mse_after_training < 10:
@@ -456,11 +471,11 @@ if __name__ == '__main__':
     # example_polynomial(coeffs, sampling_resolution=1e-7, sympy_poly=taylor_poly, net_degree=6, tf_squaring_modules=True, trainable=False)
     # --------------------------------------------------
     mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, composite_degree=6,
-                                                                sampling_res=1e-7,learning_rate=1e-3,
+                                                                sampling_res=1e-6,learning_rate=1e-3,
                                                                 train_polynomial=True, train_bumps=False)
     print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
     mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, composite_degree=6,
-                                                                sampling_res=1e-7,learning_rate=1e-3,
+                                                                sampling_res=1e-6,learning_rate=1e-3,
                                                                 train_polynomial=False, train_bumps=True)
     print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
     # --------------------------------------------------

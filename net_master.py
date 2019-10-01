@@ -62,13 +62,13 @@ class NetMaster():
 
         with self.tf_graph.as_default():
             # Create placeholder used for decaying learning rate (only for manual learning decay)
-            self.learning_rate_placeholder = tf.placeholder(tf.float32, name="learning_rate")
+            self.learning_rate_placeholder = tf.placeholder(tf.float64, name="learning_rate")
 
             # Determine loss function as MSE between label and output of net
             self.loss = tf.losses.mean_squared_error(self.output_placeholder, self.final_output)
 
             # Calc cost
-            self.cost = tf.reduce_mean(tf.cast(self.loss, tf.float32))
+            self.cost = tf.reduce_mean(tf.cast(self.loss, tf.float64))
 
             # Use Adam (for now - may later be changed) and set initial learning rate
             if self.decay_learning_rate:
@@ -101,9 +101,9 @@ class NetMaster():
         # Prepare input place holder before evaluation
         feed_dict = {}
         try:
-            feed_dict[self.input_placeholder] = np.array(x, dtype='float32').reshape((len(x), 1))
+            feed_dict[self.input_placeholder] = np.array(x, dtype='float64').reshape((len(x), 1))
         except:
-            feed_dict[self.input_placeholder] = np.array(x,dtype='float32').reshape((1, 1))
+            feed_dict[self.input_placeholder] = np.array(x,dtype='float64').reshape((1, 1))
 
         # The wanted value is the output of the sum of the hat functions or the node specified.
         if node == None:
@@ -257,8 +257,8 @@ class NetMaster():
         feed_dict[self.learning_rate_placeholder] = self.learning_rate
 
         # Create feed dictionary with the shape [#num of inputs, 1]
-        feed_dict[self.input_placeholder] = np.array(inputs, dtype='float32').reshape((len(inputs), 1))
-        feed_dict[self.output_placeholder] = np.array(outputs, dtype='float32').reshape((len(outputs), 1))
+        feed_dict[self.input_placeholder] = np.array(inputs, dtype='float64').reshape((len(inputs), 1))
+        feed_dict[self.output_placeholder] = np.array(outputs, dtype='float64').reshape((len(outputs), 1))
 
         return feed_dict
 

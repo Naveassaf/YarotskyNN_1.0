@@ -48,7 +48,7 @@ class XSquared():
         with self.tf_graph.as_default():
             # Create place holder to be used to feed network its inputs
             if input_placeholder == None:
-                self.input_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='input_placeholder')
+                self.input_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='input_placeholder')
             else:
                 self.input_placeholder = input_placeholder
 
@@ -57,7 +57,7 @@ class XSquared():
 
             # Places vector of ones in feed_dict. The value of the vector does not matter as much as the shape
             # which will be used to run the TF session when evaluating the net.
-            self.feed_dict[self.hat_outputs[0]] = np.ones(shape=[1, 1], dtype='float32')
+            self.feed_dict[self.hat_outputs[0]] = np.ones(shape=[1, 1], dtype='float64')
 
             # Set net's current output to be the input. Updated final_output is used to link hat function nets and eval net.
             self.final_output = self.input_placeholder
@@ -138,15 +138,15 @@ class XSquared():
         if first:
             # Create variable for first weights in current neuron
             if self.yarotsky_initialization:
-                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, initializer=initer, trainable=self.trainable)
             else:
-                var = tf.get_variable(name=name, dtype=tf.float32, shape=[1, COMPOSITE_NET_WIDTH], initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, shape=[1, COMPOSITE_NET_WIDTH], initializer=initer, trainable=self.trainable)
         else:
             # Create variable for second weights in current neuron
             if self.yarotsky_initialization:
-                var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, initializer=initer, trainable=self.trainable)
             else:
-                var = tf.get_variable(name=name, dtype=tf.float32, shape=[COMPOSITE_NET_WIDTH, 1], initializer=initer, trainable=self.trainable)
+                var = tf.get_variable(name=name, dtype=tf.float64, shape=[COMPOSITE_NET_WIDTH, 1], initializer=initer, trainable=self.trainable)
 
         # Store in dictionary for saving trained net
         self.variable_dict[name] = var
@@ -163,9 +163,9 @@ class XSquared():
         '''
 
         if first:
-            return tf.constant(value=np.array([1, 1, 1]), shape=[1, COMPOSITE_NET_WIDTH], dtype=tf.float32, name=name)
+            return tf.constant(value=np.array([1, 1, 1]), shape=[1, COMPOSITE_NET_WIDTH], dtype=tf.float64, name=name)
         else:
-            return tf.constant(value=np.array([2, -4, 2]), shape=[COMPOSITE_NET_WIDTH, 1], dtype=tf.float32, name=name)
+            return tf.constant(value=np.array([2, -4, 2]), shape=[COMPOSITE_NET_WIDTH, 1], dtype=tf.float64, name=name)
 
     def get_hat_biases(self, first, name):
         '''
@@ -180,10 +180,10 @@ class XSquared():
         if self.yarotsky_initialization:
             initial = self.get_hat_biases_yarotsky_init(first, name)
         else:
-            initial = tf.constant(1, shape=[1, COMPOSITE_NET_WIDTH], dtype=tf.float32)
+            initial = tf.constant(1, shape=[1, COMPOSITE_NET_WIDTH], dtype=tf.float64)
 
         # Create variable
-        var = tf.get_variable(name=name, dtype=tf.float32, initializer=initial, trainable=self.trainable)
+        var = tf.get_variable(name=name, dtype=tf.float64, initializer=initial, trainable=self.trainable)
 
         # Store in dictionary for pickling
         self.variable_dict[name] = var
@@ -200,9 +200,9 @@ class XSquared():
         '''
 
         if first:
-            return tf.constant(value=np.array([0, -0.5, -1]), shape=[1, COMPOSITE_NET_WIDTH], dtype=tf.float32, name=name)
+            return tf.constant(value=np.array([0, -0.5, -1]), shape=[1, COMPOSITE_NET_WIDTH], dtype=tf.float64, name=name)
         else:
-            return tf.constant(value=np.array([0]), shape=[1, 1], dtype=tf.float32, name=name)
+            return tf.constant(value=np.array([0]), shape=[1, 1], dtype=tf.float64, name=name)
 
     def append_hat_linker(self):
         '''
@@ -243,12 +243,12 @@ class XSquared():
             initer = self.get_linker_weights_yarotsky_init(name)
 
             # Create variable for first weights in current neuron
-            var = tf.get_variable(name=name, dtype=tf.float32, initializer=initer, trainable=self.trainable)
+            var = tf.get_variable(name=name, dtype=tf.float64, initializer=initer, trainable=self.trainable)
         else:
             initer = tf.contrib.layers.xavier_initializer()
 
             # Create variable for first weights in current neuron
-            var = tf.get_variable(name=name, dtype=tf.float32, shape=[self.max_degree + 1, 1], initializer=initer, trainable=self.trainable)
+            var = tf.get_variable(name=name, dtype=tf.float64, shape=[self.max_degree + 1, 1], initializer=initer, trainable=self.trainable)
 
         # Store in dictionary for saving trained net
         self.variable_dict[name] = var
@@ -273,7 +273,7 @@ class XSquared():
                 linker_weights.append(-2 ** (-2 * hat_degree))
 
         # Return weight object - constant column vector with max_degree + 1 values
-        return tf.constant(value=np.array(linker_weights), shape=[self.max_degree+1 , 1], dtype=tf.float32, name=name)
+        return tf.constant(value=np.array(linker_weights), shape=[self.max_degree+1 , 1], dtype=tf.float64, name=name)
 
 #TESTING AREA#
 if __name__ == '__main__':

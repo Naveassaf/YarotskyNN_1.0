@@ -48,7 +48,7 @@ class XY():
             # Creation of (x+y)^2 block
             TEMP_x_plus_y_input = tf.add(self.input_placeholder_x, self.input_placeholder_y,
                                                 name='input_adder_' + self.naming_postfix)
-            x_plus_y_input = tf.matmul(TEMP_x_plus_y_input, tf.constant(value=np.array([0.5]), shape=[1, 1], dtype=tf.float32))
+            x_plus_y_input = tf.matmul(TEMP_x_plus_y_input, tf.constant(value=np.array([0.5]), shape=[1, 1], dtype=tf.float64))
 
             self.x_plus_y_squared = XSquared(self.max_degree, 'x_plus_y'+self.naming_postfix,
                                              input_placeholder=x_plus_y_input, graph=self.tf_graph,
@@ -77,11 +77,11 @@ class XY():
             initer = tf.contrib.layers.xavier_initializer()
 
         if self.yarotsky_initialization:
-            var = tf.get_variable(name='monomial_linker'+self.naming_postfix, dtype=tf.float32, initializer=initer, trainable=self.trainable)
+            var = tf.get_variable(name='monomial_linker'+self.naming_postfix, dtype=tf.float64, initializer=initer, trainable=self.trainable)
         else:
-            var = tf.get_variable(name='monomial_linker'+self.naming_postfix, dtype=tf.float32, shape=[3, 1], initializer=initer, trainable=self.trainable)
+            var = tf.get_variable(name='monomial_linker'+self.naming_postfix, dtype=tf.float64, shape=[3, 1], initializer=initer, trainable=self.trainable)
 
         return var
 
     def get_linking_weights_yarotsky(self):
-        return tf.constant(value=np.array([2, -0.5, -0.5]), shape=[3, 1], dtype=tf.float32)
+        return tf.constant(value=np.array([2, -0.5, -0.5]), shape=[3, 1], dtype=tf.float64)
