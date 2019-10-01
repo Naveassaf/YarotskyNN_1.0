@@ -7,7 +7,11 @@ from x_squared import USE_UNDYING_RELU
 BUMP_FUNCTION_WIDTH = 4
 
 class Bump():
+<<<<<<< HEAD
     def __init__(self, N, bump_index, naming_postfix, input_placeholder=None, graph=None, yarotsky_initialization=False,
+=======
+    def __init__(self, N, bump_index, naming_postfix, input_placeholder=None, graph=None, yarotsky_initialization=True,
+>>>>>>> 0b6b494... -TF polynomial working.
                  ud_relus=USE_UNDYING_RELU, trainable=True):
             # Naming convention prefix to prevent naming clashes with other blocks in tf_graph
             self.naming_postfix = naming_postfix
@@ -54,6 +58,7 @@ class Bump():
     def build_bump_graph(self):
 
         with self.tf_graph.as_default():
+<<<<<<< HEAD
             first_weights = self.get_bump_weights(first=True, name=self.naming_postfix+'_weights_1')
 
             first_matmul = tf.matmul(self.input_placeholder, first_weights, name=self.naming_postfix+ '_matmul_1')
@@ -61,6 +66,15 @@ class Bump():
             first_biases = self.get_bump_biases(name=self.naming_postfix+'_biases')
 
             adder = tf.add(first_matmul, first_biases, name=self.naming_postfix+'_adder' )
+=======
+            self.first_weights = self.get_bump_weights(first=True, name=self.naming_postfix+'_weights_1')
+
+            first_matmul = tf.matmul(self.input_placeholder, self.first_weights, name=self.naming_postfix+ '_matmul_1')
+
+            self.first_biases = self.get_bump_biases(name=self.naming_postfix+'_biases')
+
+            adder = tf.add(first_matmul, self.first_biases, name=self.naming_postfix+'_adder' )
+>>>>>>> 0b6b494... -TF polynomial working.
 
             # If learning net, append batch normalization layer before ReLus
             if self.use_ud_relus:
@@ -68,9 +82,15 @@ class Bump():
             else:
                 relus = tf.nn.relu(adder, name=self.naming_postfix + '_relu')
 
+<<<<<<< HEAD
             second_weights = self.get_bump_weights(first=False, name=self.naming_postfix+'_weights_2')
 
             self.final_output = tf.matmul(relus, second_weights, name=self.naming_postfix+ '_matmul_2')
+=======
+            self.second_weights = self.get_bump_weights(first=False, name=self.naming_postfix+'_weights_2')
+
+            self.final_output = tf.matmul(relus, self.second_weights, name=self.naming_postfix+ '_matmul_2')
+>>>>>>> 0b6b494... -TF polynomial working.
 
     def get_bump_weights(self, first, name):
         '''
