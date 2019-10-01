@@ -1,7 +1,6 @@
 from x_squared import XSquared
 from x_times_y import XY
 import tensorflow as tf
-import math
 
 # CONSTANTS
 from x_squared import USE_UNDYING_RELU
