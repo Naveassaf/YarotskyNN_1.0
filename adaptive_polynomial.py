@@ -5,11 +5,13 @@ from polynomial import Polynomial
 
 # CONSTANTS
 from x_squared import USE_UNDYING_RELU
-RANDOM_COEFF_RANGE = (-2, 2)
+RANDOM_COEFF_RANGE = (1, 3)
 
-class TFPolynomial(Polynomial):
+class AdaptivePolynomial(Polynomial):
     def __init__(self, naming_postfix, coefficients=[],input_placeholder=None,
                  graph=None, ud_relus=USE_UNDYING_RELU, trainable=True, polynomial_degree=None):
+
+        self.feed_dict = {}
 
         if len(coefficients) == 0:
             # Create random coefficients for the polynomial
@@ -43,6 +45,10 @@ class TFPolynomial(Polynomial):
 
             # Create coefficient tensor without constant (which will be added after)
             initer = tf.constant(value=self.coefficients[1:], shape=[len(self.coefficients) - 1, 1], dtype=tf.float64)
+
+            tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
+
+
             coefficient_tensor = tf.get_variable(name=self.naming_postfix+'_coeffs', dtype=tf.float64, initializer=initer, trainable=self.trainable)
 
             matmul = tf.matmul(self.monomial_tensor, coefficient_tensor, name=self.naming_postfix+'_output')
