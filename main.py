@@ -13,17 +13,15 @@ import tensorflow as tf
 import sympy.parsing.sympy_parser as parser
 import sympy as sy
 
-# TODO: COMMENT OUT FOR WINDOWS (questionable patch)
-import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+# TODO: COMMENT OUT FOR WINDOWS (questionable patch for MacOS)
+# import os
+# os.environ['KMP_DUPLICATE_LIB_OK']='True'
 # TODO: END
 
 # CONSTANTS
 func_expression = ''
 sy_x = sy.Symbol('x')
 DEFAULT_POLY_DEGREE = 10
-
-
 
 def func(x):
     '''
@@ -768,7 +766,7 @@ def section_8B(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rat
     mse_before_training = master.calc_mse(func)
     plt.figure(1)
 
-    # Plotting
+    # Draw hat and taylor values before training
     range_start = 0
     half_range_width = 1.0 / (2 * float(N))
     whole_range_inputs = np.arange(0, 1.001, 0.001)
@@ -783,29 +781,36 @@ def section_8B(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rat
             range_start += 2 * half_range_width
 
         plt.plot(inputs, eval_sympy_polynomial_vector(inputs, sympy_taylor_dict[index]), color='r', linewidth=1.0)
-        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='y', linewidth=1.0)
+        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='r', linewidth=1.0)
 
+    # Draw function being estimated/learnt
     inputs = np.arange(0, 1.001, 0.001)
     plt.plot(inputs, func(inputs), color='b', linewidth=1.0)
 
+    # Draw net's initial value
     if mse_before_training < 10:
         plt.plot(inputs, master.evaluate(inputs), color='g', linewidth=1.0)
 
+    # Train net
     master.train(print_to_console=True)
 
+    # Draw new hats and taylor values after training
     for index in range(N + 1):
         plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='m', linewidth=1.0)
 
+    # Plot net value after training
     mse_after_training = master.calc_mse(func)
     if mse_after_training < 10:
         plt.plot(inputs, master.evaluate(inputs), color='c', linewidth=1.0)
 
+    # Save output if desired
     if save_path == None:
         plt.show()
     else:
         plt.savefig(save_path)
         plt.clf()
 
+    # Plot loss
     plt.figure(2)
     plt.plot(range(len(master.loss_list)), master.loss_list)
     plt.yscale('log')
@@ -885,20 +890,20 @@ if __name__ == '__main__':
 
     '''SECTION 8'''
     # oOoOoOoO  8A1  oOoOoOoO
-    # mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
-    #                                                                learning_rate=1e-3, ud_relus=False, taylor_init = True,
-    #                                                               train_polynomial=True, train_bumps=True)
-    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
+                                                                   learning_rate=1e-3, ud_relus=False, taylor_init = True,
+                                                                  train_polynomial=True, train_bumps=True)
+    print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
 
     # oOoOoOoO  8A2  oOoOoOoO
-    # mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
-    #                                                               learning_rate=1e-3, ud_relus=False, taylor_init=False,
-    #                                                               train_polynomial=True, train_bumps=True)
-    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
+                                                                  learning_rate=1e-3, ud_relus=False, taylor_init=False,
+                                                                  train_polynomial=True, train_bumps=True)
+    print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
 
     # oOoOoOoO  8B  oOoOoOoO
     mse_before_training, mse_after_training = section_8B(N=3, taylor_degree=4, sampling_res=1e-7,
                                                          learning_rate=1e-3, ud_relus=False)
-    print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
 
     pass

@@ -25,6 +25,7 @@ class Bump():
             self.bump_center = float(bump_index) / float(N)
             self.relu_offset = 1.0 / (3 * float(N))
 
+            self.index = bump_index
 
             # For TF interface. Sets graph passed to constructor as the x^2 object's TF graph or creates graph if not passed
             if graph == None:

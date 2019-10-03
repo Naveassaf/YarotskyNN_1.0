@@ -6,6 +6,9 @@ import Additional_Sources.UndyingReLU as UDrelu
 # CONSTANTS
 from x_squared import USE_UNDYING_RELU
 from bump import BUMP_FUNCTION_WIDTH
+BUMP_CENTER_MIN = -0.1
+BUMP_CENTER_MAX = 1.1
+
 
 class RigidBump(Bump):
     def __init__(self, N, bump_index, naming_postfix, input_placeholder=None, graph=None, ud_relus=USE_UNDYING_RELU):
@@ -32,10 +35,13 @@ class RigidBump(Bump):
 
             small_OS = tf.math.abs(tf.get_variable(name=self.naming_postfix + '_y_var', dtype=tf.float64, initializer=np.array([y_init])))
 
-            temp_center = tf.nn.relu(tf.get_variable(name=self.naming_postfix + '_center_var', dtype=tf.float64, initializer=np.array([self.bump_center])))
-            center_var = tf.math.minimum(temp_center, tf.constant(value=np.array([1.0]), shape=temp_center.shape, dtype=tf.float64))
+            # Ensure bump center ramains between BUMP_CENTER_MIN and BUMP_CENTER_MAX
+            temp_center = tf.math.maximum(tf.get_variable(name=self.naming_postfix + '_center_var', dtype=tf.float64, initializer=np.array([self.bump_center])),
+                                          tf.constant(value=np.array([BUMP_CENTER_MIN]), shape=[1, 1], dtype=tf.float64))
+            self.center_var = tf.math.minimum(temp_center, tf.constant(value=np.array([BUMP_CENTER_MAX]), shape=temp_center.shape, dtype=tf.float64))
 
-            first_biases = tf.concat(values=[large_OS-center_var, small_OS-center_var, -small_OS-center_var, -large_OS-center_var], axis=0)
+            first_biases = tf.concat(values=[large_OS-self.center_var, small_OS-self.center_var,
+                                             -small_OS-self.center_var, -large_OS-self.center_var], axis=1)
 
             adder = tf.add(first_matmul, first_biases, name=self.naming_postfix+'_adder' )
 
@@ -50,3 +56,11 @@ class RigidBump(Bump):
             second_weights = tf.concat(values=[slope, -slope, -slope, slope], axis=0)
 
             self.final_output = tf.matmul(relus, second_weights, name=self.naming_postfix+ '_matmul_2')
+
+    def update_bump_center(self, open_session):
+        '''
+        Given a currently running TD session, calculates the bump's updated center and the corresponding variable
+        :param open_session:
+        :return:
+        '''
+        self.bump_center = open_session.run(self.center_var)

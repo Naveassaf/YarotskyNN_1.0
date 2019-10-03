@@ -19,6 +19,7 @@ class TFPolynomial(Polynomial):
         Polynomial.__init__(self, net_degree=None, naming_postfix=naming_postfix, coefficients=coefficients
                             ,input_placeholder=input_placeholder, graph=graph, yarotsky_initialization=False,
                             ud_relus=ud_relus, tf_squaring_modules=False, trainable=trainable)
+
     def build_net(self):
 
         with self.tf_graph.as_default():

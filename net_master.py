@@ -67,6 +67,8 @@ class NetMaster():
 
         self.poly_list = poly_list
 
+        self.feed_dict = {}
+
         with self.tf_graph.as_default():
             # Create placeholder used for decaying learning rate (only for manual learning decay)
             self.learning_rate_placeholder = tf.placeholder(tf.float64, name="learning_rate")
@@ -108,15 +110,18 @@ class NetMaster():
         :return: output of net for given input vector
         '''
         # Prepare input place holder before evaluation
-        feed_dict = self.get_feed_dict(x)
+        # Check if Taylor coefficients need to be placed into feed_dictionary (for running sessions before training)
+        self.feed_dict.update(self.get_feed_dict(x, update_taylor_coeffs=False))
+        if self.adaptive_mode and (not self.poly_list[0].coeffs_PH in self.feed_dict):
+            self.feed_dict.update(self.get_feed_dict(x, update_taylor_coeffs=True))
 
         # The wanted value is the output of the sum of the hat functions or the node specified.
         if node == None:
             # If no node is provided, evaluate final_output of net
-            output = self.sess.run(self.final_output, feed_dict=feed_dict)
+            output = self.sess.run(self.final_output, feed_dict=self.feed_dict)
         else:
             # Else evaluate node given
-            output = self.sess.run(node, feed_dict=feed_dict)
+            output = self.sess.run(node, feed_dict=self.feed_dict)
 
         # Output is returned as [1,1] array. Returns its only value
         return output
@@ -131,33 +136,35 @@ class NetMaster():
         # Perform training batches
         samples_since_resurrection = 0
 
-        feed_dict = {}
-
         for iteration in range(self.iteration_count):
             # Get vectors of (x,y) tuples with for the current iteration
             train_x, train_y = self.next_batch('train_set', iteration * self.batch_size, (iteration + 1) * self.batch_size)
 
-            # Set value of input vector placeholders and output result placeholder
-            feed_dict = self.get_feed_dict(train_x, update_taylor_coeffs=(iteration%ADAPTIVE_TAYLOR_RECALC_FREQ == 0), old_feed_dict=feed_dict)
+            # Set value of input vector placeholders and output result placeholder.
+            # If addaptive_mode, once every ADAPTIVE..FREQ iterations, update bump centers and polynomial coefs accord.
+            if iteration % ADAPTIVE_TAYLOR_RECALC_FREQ == 0:
+                self.feed_dict.update(self.get_feed_dict(train_x, update_taylor_coeffs=True))
+            else:
+                self.feed_dict.update(self.get_feed_dict(train_x, update_taylor_coeffs=False))
 
             # Maintenance of UD Relus in case neural net is using them
             if self.using_ud_relu:
-                feed_dict = UDrelu.add_to_feed_dict(feed_dict, graph=self.tf_graph)
+                self.feed_dict = UDrelu.add_to_feed_dict(feed_dict)
 
                 # Resurrect Relus every UDRELU_RESURRECTION_FREQ samples
                 if samples_since_resurrection >= UDRELU_RESURRECTION_FREQ:
-                    UDrelu.resurrect(self.sess, feed_dict, graph=self.tf_graph)
+                    UDrelu.resurrect(self.sess, self.feed_dict)
                     samples_since_resurrection = 0
                 else:
                     samples_since_resurrection += self.batch_size
 
             # Calculate and display loss
             try:
-                _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=feed_dict)
+                _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=self.feed_dict)
             except:
-                print('Recalc Taylor')
-                feed_dict = self.get_feed_dict(train_x, update_taylor_coeffs=True)
-                _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=feed_dict)
+                print('Training Error --- Recalculating Taylor coefficients and trying again')
+                self.feed_dict.update(self.get_feed_dict(train_x, update_taylor_coeffs=True))
+                _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=self.feed_dict)
 
             self.loss_list.append(batch_loss)
 
@@ -172,7 +179,6 @@ class NetMaster():
             if print_to_console and (((iteration + 1) % print_frequecy == 0) or (iteration == self.iteration_count - 1) or (iteration == 0)):
                 print('Trained iteration: {}/{}, Loss: {}'.format(iteration + 1, self.iteration_count, min(self.loss_list[-LOSS_PRINT_ITERATION_RANGE:])))
                 #TODO FOR NOW
-
 
     def prep_sets(self):
         '''
@@ -256,7 +262,7 @@ class NetMaster():
         y_batch = self.data_sets[label][start:end]
         return x_batch, y_batch
 
-    def get_feed_dict(self, x, update_taylor_coeffs=True, old_feed_dict={}):
+    def get_feed_dict(self, x, update_taylor_coeffs=False):
         '''
         Inserts X into input place holder (for calculations) and f(x) into output placeholder (for comparison)
 
@@ -265,29 +271,35 @@ class NetMaster():
         :return:
         '''
         # Initialize current feed dictionary, inputs and outputs
-        feed_dict = old_feed_dict
         inputs = x
         outputs = self.function(x)
 
         # For manual learning rate decay, sets value of learning rate at beginning of each iteration
-        feed_dict[self.learning_rate_placeholder] = self.learning_rate
+        self.feed_dict.update({self.learning_rate_placeholder: self.learning_rate})
 
         # Create feed dictionary with the shape [#num of inputs, 1]
-        feed_dict[self.input_placeholder] = np.array(inputs, dtype='float64').reshape((len(inputs), 1))
-        feed_dict[self.output_placeholder] = np.array(outputs, dtype='float64').reshape((len(outputs), 1))
+        self.feed_dict.update({self.input_placeholder: np.array(inputs, dtype='float64').reshape((len(inputs), 1))})
+        self.feed_dict.update({self.output_placeholder: np.array(outputs, dtype='float64').reshape((len(outputs), 1))})
 
         # If in adaptive mode, recalculate taylor coefficients of polynomials necessary PH values to feed dict
         if self.adaptive_mode and update_taylor_coeffs:
             for bump, poly in zip(self.bump_list, self.poly_list):
-                feed_dict.update(poly.get_updated_feed_dict(bump.bump_center))
+                bump.update_bump_center(open_session=self.sess)
+                self.feed_dict.update(poly.get_updated_feed_dict(taylor_x0=bump.bump_center))
 
 
-        return feed_dict
+        return self.feed_dict
 
     def calc_mse(self, function, start=0, stop=1):
         temp_range = np.arange(start, stop+DEFAULT_MSE_RESOLUTION, DEFAULT_MSE_RESOLUTION)
         test_sampling_points = temp_range.reshape([len(temp_range), 1])
-        [test_outputs] = self.sess.run([self.final_output], feed_dict=self.get_feed_dict(test_sampling_points))
+
+        # If placeholder of first polynomial is not in feed dict, none are and thus they must be calced and entered
+        self.feed_dict.update(self.get_feed_dict(test_sampling_points, update_taylor_coeffs=False))
+        if self.adaptive_mode and (not self.poly_list[0].coeffs_PH in self.feed_dict):
+            self.feed_dict.update(self.get_feed_dict(test_sampling_points, update_taylor_coeffs=True))
+
+        [test_outputs] = self.sess.run([self.final_output], feed_dict=self.feed_dict)
         mse = np.average((test_outputs -function(test_sampling_points))**2)
 
         return mse

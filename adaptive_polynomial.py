@@ -57,7 +57,7 @@ class AdaptivePolynomial(Polynomial):
     def get_updated_feed_dict(self, taylor_x0):
         # Recalculate Taylor coefficients
         new_coeffs = self.get_taylor_coeffs(taylor_x0=taylor_x0)
-        print('New Coeffs: {}'.format(new_coeffs))
+        print('Center: {}\tCoeffs {}'.format(taylor_x0, new_coeffs))
 
         self.feed_dict[self.constant_PH] = np.array([new_coeffs[0]]).reshape([1,1])
         self.feed_dict[self.coeffs_PH] = np.array(new_coeffs[1:]).reshape([len(new_coeffs) - 1, 1])
