@@ -17,12 +17,13 @@ MANUAL_LEARNING_RATE_DECAY_TEST = 10
 MANUAL_LEARNING_RATE_DECAY_COEF = 0.5
 LOSS_PRINT_ITERATION_RANGE = 50
 DEFAULT_MSE_RESOLUTION = 1e-3
+ADAPTIVE_TAYLOR_RECALC_FREQ = 1000
 
 class NetMaster():
     def __init__(self, tf_graph,function, net_output, input_placeholder, output_placeholder,
                  sampling_resolution=DEFAULT_SAMPLING_RESOLUTION, decay_learning_rate=MANUAL_LEARNING_RATE_DECAY,
                  learning_rate=DEFAULT_LEARNING_RATE, using_ud_relu=USE_UNDYING_RELU, batch_size = DEFAULT_BATCH_SIZE,
-                 trainable_net=True):
+                 trainable_net=True, adaptive_mode=False, bump_list=[], poly_list=[]):
 
         # NN's Graph to which learning rate placeholder (for learning rate decay) and other configs shall be added
         self.tf_graph = tf_graph
@@ -60,6 +61,12 @@ class NetMaster():
 
         self.trainable_net=trainable_net
 
+        self.adaptive_mode = adaptive_mode
+
+        self.bump_list = bump_list
+
+        self.poly_list = poly_list
+
         with self.tf_graph.as_default():
             # Create placeholder used for decaying learning rate (only for manual learning decay)
             self.learning_rate_placeholder = tf.placeholder(tf.float64, name="learning_rate")
@@ -78,8 +85,10 @@ class NetMaster():
 
             # Variable used to ensure batch normalization occurs every batch
             self.update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(self.update_ops):
-                self.optimizer = trainer.minimize(self.cost)
+
+            if self.trainable_net:
+                with tf.control_dependencies(self.update_ops):
+                    self.optimizer = trainer.minimize(self.cost)
 
             # Initialize all variables before beginning session
             self.init = tf.global_variables_initializer()
@@ -99,11 +108,7 @@ class NetMaster():
         :return: output of net for given input vector
         '''
         # Prepare input place holder before evaluation
-        feed_dict = {}
-        try:
-            feed_dict[self.input_placeholder] = np.array(x, dtype='float64').reshape((len(x), 1))
-        except:
-            feed_dict[self.input_placeholder] = np.array(x,dtype='float64').reshape((1, 1))
+        feed_dict = self.get_feed_dict(x)
 
         # The wanted value is the output of the sum of the hat functions or the node specified.
         if node == None:
@@ -125,12 +130,15 @@ class NetMaster():
 
         # Perform training batches
         samples_since_resurrection = 0
+
+        feed_dict = {}
+
         for iteration in range(self.iteration_count):
             # Get vectors of (x,y) tuples with for the current iteration
             train_x, train_y = self.next_batch('train_set', iteration * self.batch_size, (iteration + 1) * self.batch_size)
 
             # Set value of input vector placeholders and output result placeholder
-            feed_dict = self.get_feed_dict(train_x)
+            feed_dict = self.get_feed_dict(train_x, update_taylor_coeffs=(iteration%ADAPTIVE_TAYLOR_RECALC_FREQ == 0), old_feed_dict=feed_dict)
 
             # Maintenance of UD Relus in case neural net is using them
             if self.using_ud_relu:
@@ -144,11 +152,17 @@ class NetMaster():
                     samples_since_resurrection += self.batch_size
 
             # Calculate and display loss
-            _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=feed_dict)
+            try:
+                _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=feed_dict)
+            except:
+                print('Recalc Taylor')
+                feed_dict = self.get_feed_dict(train_x, update_taylor_coeffs=True)
+                _, batch_loss, x = self.sess.run([self.optimizer, self.loss, self.update_ops], feed_dict=feed_dict)
+
             self.loss_list.append(batch_loss)
 
             # Decay learning rate if relevant.e
-            #TODO change to batch-based decy, and not loss dependent decay
+            #TODO change to batch-based decay, and not loss dependent decay
             if (self.decay_learning_rate) and (self.learning_rate / batch_loss > MANUAL_LEARNING_RATE_DECAY_TEST):
                 if print_to_console:
                     print('Decaying Learning Rate')
@@ -157,6 +171,8 @@ class NetMaster():
             # Print batch number and loss in current batch (condition ensures first loss is printed for reference)
             if print_to_console and (((iteration + 1) % print_frequecy == 0) or (iteration == self.iteration_count - 1) or (iteration == 0)):
                 print('Trained iteration: {}/{}, Loss: {}'.format(iteration + 1, self.iteration_count, min(self.loss_list[-LOSS_PRINT_ITERATION_RANGE:])))
+                #TODO FOR NOW
+
 
     def prep_sets(self):
         '''
@@ -240,7 +256,7 @@ class NetMaster():
         y_batch = self.data_sets[label][start:end]
         return x_batch, y_batch
 
-    def get_feed_dict(self, x):
+    def get_feed_dict(self, x, update_taylor_coeffs=True, old_feed_dict={}):
         '''
         Inserts X into input place holder (for calculations) and f(x) into output placeholder (for comparison)
 
@@ -249,7 +265,7 @@ class NetMaster():
         :return:
         '''
         # Initialize current feed dictionary, inputs and outputs
-        feed_dict = {}
+        feed_dict = old_feed_dict
         inputs = x
         outputs = self.function(x)
 
@@ -260,12 +276,18 @@ class NetMaster():
         feed_dict[self.input_placeholder] = np.array(inputs, dtype='float64').reshape((len(inputs), 1))
         feed_dict[self.output_placeholder] = np.array(outputs, dtype='float64').reshape((len(outputs), 1))
 
+        # If in adaptive mode, recalculate taylor coefficients of polynomials necessary PH values to feed dict
+        if self.adaptive_mode and update_taylor_coeffs:
+            for bump, poly in zip(self.bump_list, self.poly_list):
+                feed_dict.update(poly.get_updated_feed_dict(bump.bump_center))
+
+
         return feed_dict
 
     def calc_mse(self, function, start=0, stop=1):
         temp_range = np.arange(start, stop+DEFAULT_MSE_RESOLUTION, DEFAULT_MSE_RESOLUTION)
         test_sampling_points = temp_range.reshape([len(temp_range), 1])
-        [test_outputs] = self.sess.run([self.final_output], feed_dict={self.input_placeholder:test_sampling_points})
+        [test_outputs] = self.sess.run([self.final_output], feed_dict=self.get_feed_dict(test_sampling_points))
         mse = np.average((test_outputs -function(test_sampling_points))**2)
 
         return mse

@@ -3,18 +3,20 @@ from x_squared import XSquared
 from x_times_y import XY
 from bump import Bump
 from net_master import NetMaster
-from power_polynomial import PowerPolynomial
+from tf_polynomial import TFPolynomial
+from rigid_bump import RigidBump
+from adaptive_polynomial import AdaptivePolynomial
 
 import matplotlib.pyplot as plt
-import tensorflow as tf
 import numpy as np
+
 import sympy.parsing.sympy_parser as parser
 import sympy as sy
 
-# # TODO: COMMENT OUT FOR WINDOWS (questionable patch)
-# import os
-# os.environ['KMP_DUPLICATE_LIB_OK']='True'
-# # TODO: END
+# TODO: COMMENT OUT FOR WINDOWS (questionable patch)
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+# TODO: END
 
 # CONSTANTS
 func_expression = ''
@@ -38,8 +40,8 @@ def func(x):
     return np.sin(10*x)+np.cos(15*x)-x**2
     # func_expression = '0.1+0.2*x+0.3*x**2+0.4*x**3+0.1*x**4'
     # return 0.1+0.2*x+0.3*x**2+0.4*x**3+0.1*x**4
-    # func_expression = 'x**5+5*x-3'
-    # return x**5+5*x-3
+    # func_expression = '0.0001*x+1'
+    # return 0.0001*x+1
     ################################################
 
 def example_x_squared():
@@ -189,66 +191,6 @@ def example_polynomial(coefficients, net_degree=10, learning_rate=1e-3, sampling
 
     return initial_mse,final_mse
 
-def example_power_polynomial(coefficients=[], learning_rate=1e-3, sampling_resolution=1e-7,
-                       save_path=None, sympy_poly=None, trainable=True, ud_relus=False, polynomial_degree=None):
-
-    # Make sure either len of coefficient vector or the vector itself are passed
-    if (len(coefficients) == 0) and (polynomial_degree == None):
-        print('ERROR: Must pass either coefficient vector or polynomial degree')
-        return 'FAILED, FAILED'
-
-    # Create polynomial with the provided argumnets...
-    poly = PowerPolynomial(naming_postfix='tester', coefficients=coefficients, ud_relus=ud_relus,
-                           trainable=trainable, polynomial_degree=polynomial_degree)
-
-    # Create output placehoder to be used by master for training.
-    with poly.tf_graph.as_default():
-        output_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
-
-    # Create master which will train and evaluate polynomial network.
-    master = NetMaster(tf_graph=poly.tf_graph, function=func, net_output=poly.final_output,
-                       input_placeholder=poly.input_placeholder, output_placeholder=output_placeholder,
-                       sampling_resolution=sampling_resolution, learning_rate=learning_rate, trainable_net=trainable)
-
-    # Graph polynomial function
-    inputs = np.arange(0, 1, 0.001)
-    out = master.evaluate(inputs)
-
-    initial_mse = master.calc_mse(func)
-
-    plt.figure(1)
-    if not sympy_poly == None:
-        plt.plot(inputs, eval_sympy_polynomial_vector(inputs, sympy_poly), color='r')
-    plt.plot(inputs, out, color='g')
-    plt.plot(inputs, func(inputs), color='b')
-
-    # Train and reevaluate network
-    if trainable:
-        master.train()
-
-    out = master.evaluate(inputs)
-    plt.plot(inputs, out, color='c')
-
-    if save_path == None:
-        plt.show()
-    else:
-        plt.savefig(save_path)
-        plt.clf()
-
-    # Plot convergence of net
-    plt.figure(2)
-    plt.plot(range(len(master.loss_list)), master.loss_list)
-    plt.yscale('log')
-
-    if save_path == None:
-        plt.show()
-    else:
-        plt.savefig(save_path.replace('.pdf', '_LOSS.pdf'))
-        plt.clf()
-
-    final_mse = master.calc_mse(func)
-
-    return initial_mse, final_mse
 
 def example_taylor(taylor_x0, polynomial_degree=DEFAULT_POLY_DEGREE, print_to_console=False):
     '''
@@ -323,6 +265,54 @@ def example_bumps():
     plt.plot(inputs, out, color='b')
     out = master.evaluate(inputs, node=bump3.final_output)
     plt.plot(inputs, out, color='y')
+    plt.show()
+
+def example_rigid_bumps():
+    ''''
+    Example of creating and ploting bump functions for N = 3
+    '''
+
+    bump0 = RigidBump(3, 0, '0_bump',  ud_relus=False)
+    bump1 = RigidBump(3, 1, '1_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
+    bump2 = RigidBump(3, 2, '2_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
+    bump3 = RigidBump(3, 3, '3_bump', graph=bump0.tf_graph, input_placeholder=bump0.input_placeholder, ud_relus=False)
+
+    # Create output placehoder to be used by master for training.
+    with bump0.tf_graph.as_default():
+        output_placeholder = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
+
+    # Create master which will train and evaluate polynomial network.
+    master = NetMaster(tf_graph=bump0.tf_graph, function=func, net_output=bump2.final_output,
+                       input_placeholder=bump0.input_placeholder, output_placeholder=output_placeholder,
+                       sampling_resolution=1e-7, learning_rate=1e-3)
+
+
+    # Graph polynomial function
+    inputs = np.arange(0, 1, 0.001)
+    plt.figure(1)
+    out = master.evaluate(inputs, node=bump2.final_output)
+    plt.plot(inputs, out, color='r')
+    out = master.evaluate(inputs, node=bump1.final_output)
+    plt.plot(inputs, out, color='g')
+    out = master.evaluate(inputs, node=bump2.final_output)
+    plt.plot(inputs, out, color='b')
+    out = master.evaluate(inputs, node=bump3.final_output)
+    plt.plot(inputs, out, color='y')
+
+
+    # Train second Bump to func() and plot again. Check that only first 3 elements are updated
+    master.train()
+
+    plt.figure(2)
+    out = master.evaluate(inputs, node=bump2.final_output)
+    plt.plot(inputs, out, color='r')
+    out = master.evaluate(inputs, node=bump1.final_output)
+    plt.plot(inputs, out, color='g')
+    out = master.evaluate(inputs, node=bump2.final_output)
+    plt.plot(inputs, out, color='b')
+    out = master.evaluate(inputs, node=bump3.final_output)
+    plt.plot(inputs, out, color='y')
+    plt.plot(inputs, func(inputs), color='m')
     plt.show()
 
 def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
@@ -427,8 +417,8 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
 
     return mse_before_training, mse_after_training
 
-def spline_power_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
-                      ud_relus=False, train_polynomial=True, train_bumps=True):
+def spline_tf_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
+                      ud_relus=False, train_polynomial=True, train_bumps=True, taylor_init=True):
 
     tf_graph = tf.Graph()
 
@@ -446,16 +436,21 @@ def spline_power_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7,
 
     for index in range(N+1):
         bump_dict[index] = Bump(N, index, naming_postfix='bump'+str(index), graph=tf_graph, input_placeholder=input_PH,
-                                yarotsky_initialization=True, ud_relus=False, trainable=train_bumps)
+                                ud_relus=False, yarotsky_initialization=True, trainable=train_bumps)
         bump_outputs.append(bump_dict[index].final_output)
+
 
         current_coeffs, sympy_taylor_dict[index] = example_taylor(taylor_x0=bump_dict[index].bump_center, polynomial_degree=taylor_degree)
 
         print('index: {}, around: {}, poly {}'.format(index,bump_dict[index].bump_center, sympy_taylor_dict[index]))
 
-        poly_dict[index] = PowerPolynomial(naming_postfix='poly'+str(index), coefficients=current_coeffs,
-                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph,
-                                           trainable=train_polynomial)
+        if not taylor_init:
+            poly_dict[index] = TFPolynomial(naming_postfix='poly'+str(index), coefficients=[],
+                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph, trainable=train_polynomial,
+                                        polynomial_degree=len(current_coeffs))
+        else:
+            poly_dict[index] = TFPolynomial(naming_postfix='poly' + str(index), coefficients=current_coeffs,
+                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph, trainable=train_polynomial)
 
         poly_outputs.append(poly_dict[index].final_output)
 
@@ -468,7 +463,7 @@ def spline_power_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7,
     # Create master which will train and evaluate spline polynomial network.
     master = NetMaster(tf_graph=tf_graph, function=func, net_output=net_output,
                            input_placeholder=input_PH, output_placeholder=output_PH,
-                           sampling_resolution=sampling_res, learning_rate=learning_rate, trainable_net=train_polynomial)
+                           sampling_resolution=sampling_res, learning_rate=learning_rate, trainable_net=train_polynomial or train_bumps)
 
     mse_before_training = master.calc_mse(func)
     plt.figure(1)
@@ -499,15 +494,6 @@ def spline_power_polynomial(N, taylor_degree, save_path=None, sampling_res=1e-7,
 
     #TODO ERASE:
     for index in range(N+1):
-        if index == 0:
-            inputs = np.arange(0,half_range_width, 0.001)
-            range_start = half_range_width
-        elif index == N:
-            inputs = np.arange(range_start, 1.001, 0.001)
-        else:
-            inputs = np.arange(range_start, range_start+2*half_range_width, 0.001)
-            range_start += 2*half_range_width
-
         plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color = 'm', linewidth=1.0)
     #TODO: END
 
@@ -622,27 +608,240 @@ def yarotsky_init_debug():
                                                                 tf_squaring_modules=True)
     print('MSE before training = ' + str(mse_before_training))
 
+
+def section_8A(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
+                      ud_relus=False, train_polynomial=True, train_bumps=True, taylor_init=True):
+    tf_graph = tf.Graph()
+
+    with tf_graph.as_default():
+        input_PH = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='input_placeholder')
+        output_PH = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
+
+    sympy_taylor_dict = {}
+
+    poly_dict = {}
+    poly_outputs = []
+
+    bump_dict = {}
+    bump_outputs = []
+
+    for index in range(N + 1):
+        bump_dict[index] = RigidBump(N, index, naming_postfix='bump' + str(index), graph=tf_graph,
+                                input_placeholder=input_PH, ud_relus=False)
+        bump_outputs.append(bump_dict[index].final_output)
+
+
+        current_coeffs, sympy_taylor_dict[index] = example_taylor(taylor_x0=bump_dict[index].bump_center,
+                                                                  polynomial_degree=taylor_degree)
+
+        print('index: {}, around: {}, poly {}'.format(index, bump_dict[index].bump_center, sympy_taylor_dict[index]))
+
+        if taylor_init:
+            poly_dict[index] = TFPolynomial(naming_postfix='poly' + str(index), coefficients=current_coeffs,
+                                                ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph,
+                                                trainable=train_polynomial)
+        else:
+            poly_dict[index] = TFPolynomial(naming_postfix='poly' + str(index), coefficients=[],
+                                            ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph,
+                                            trainable=train_polynomial, polynomial_degree=len(current_coeffs))
+
+
+        poly_outputs.append(poly_dict[index].final_output)
+
+    bump_vector = tf.concat(bump_outputs, name='bump_vector', axis=1)
+    poly_vector = tf.concat(poly_outputs, name='poly_vector', axis=1)
+    with tf_graph.as_default():
+        temp = tf.multiply(bump_vector, poly_vector)
+        net_output = tf.matmul(temp, tf.constant(value=np.ones([N + 1, 1]), shape=[N + 1, 1], dtype=tf.float64))
+
+    # Create master which will train and evaluate spline polynomial network.
+    master = NetMaster(tf_graph=tf_graph, function=func, net_output=net_output,
+                       input_placeholder=input_PH, output_placeholder=output_PH,
+                       sampling_resolution=sampling_res, learning_rate=learning_rate,
+                       trainable_net=train_polynomial or train_bumps)
+
+    mse_before_training = master.calc_mse(func)
+    plt.figure(1)
+
+    # Plotting
+    range_start = 0
+    half_range_width = 1.0 / (2 * float(N))
+    whole_range_inputs = np.arange(0, 1.001, 0.001)
+    for index in range(N + 1):
+        if index == 0:
+            inputs = np.arange(0, half_range_width, 0.001)
+            range_start = half_range_width
+        elif index == N:
+            inputs = np.arange(range_start, 1.001, 0.001)
+        else:
+            inputs = np.arange(range_start, range_start + 2 * half_range_width, 0.001)
+            range_start += 2 * half_range_width
+
+        plt.plot(inputs, eval_sympy_polynomial_vector(inputs, sympy_taylor_dict[index]), color='r', linewidth=1.0)
+        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='y', linewidth=1.0)
+
+    inputs = np.arange(0, 1.001, 0.001)
+    plt.plot(inputs, func(inputs), color='b', linewidth=1.0)
+
+    if mse_before_training < 10:
+        plt.plot(inputs, master.evaluate(inputs), color='g', linewidth=1.0)
+
+    master.train(print_to_console=True)
+
+    for index in range(N + 1):
+        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='m', linewidth=1.0)
+
+    mse_after_training = master.calc_mse(func)
+    if mse_after_training < 10:
+        plt.plot(inputs, master.evaluate(inputs), color='c', linewidth=1.0)
+
+    if save_path == None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+        plt.clf()
+
+    plt.figure(2)
+    plt.plot(range(len(master.loss_list)), master.loss_list)
+    plt.yscale('log')
+    if not save_path == None:
+        plt.savefig(save_path.replace('.pdf', '_LOSS.pdf'))
+
+    plt.clf()
+
+    return mse_before_training, mse_after_training
+
+def section_8B(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
+                      ud_relus=False):
+    tf_graph = tf.Graph()
+
+    with tf_graph.as_default():
+        input_PH = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='input_placeholder')
+        output_PH = tf.placeholder(dtype=tf.float64, shape=[None, 1], name='output_placeholder')
+
+    sympy_taylor_dict = {}
+
+    poly_dict = {}
+    poly_outputs = []
+
+    bump_dict = {}
+    bump_outputs = []
+
+    poly_list = []
+    bump_list = []
+
+    if func_expression == '':
+        func(1)
+
+    sympy_expr = parser.parse_expr(func_expression, evaluate=True, transformations=parser.standard_transformations + (parser.implicit_multiplication,))
+
+    for index in range(N + 1):
+        bump_dict[index] = RigidBump(N, index, naming_postfix='bump' + str(index), graph=tf_graph,
+                                input_placeholder=input_PH, ud_relus=False)
+        bump_outputs.append(bump_dict[index].final_output)
+        bump_list.append(bump_dict[index])
+
+        current_coeffs, sympy_taylor_dict[index] = example_taylor(taylor_x0=bump_dict[index].bump_center,
+                                                                  polynomial_degree=taylor_degree)
+
+        print('index: {}, around: {}, poly {}'.format(index, bump_dict[index].bump_center, sympy_taylor_dict[index]))
+
+        poly_dict[index] = AdaptivePolynomial(naming_postfix='poly' + str(index), coefficients=current_coeffs,
+                                                ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph,
+                                              sympy_expr=sympy_expr)
+
+        poly_list.append(poly_dict[index])
+        poly_outputs.append(poly_dict[index].final_output)
+
+    bump_vector = tf.concat(bump_outputs, name='bump_vector', axis=1)
+    poly_vector = tf.concat(poly_outputs, name='poly_vector', axis=1)
+    with tf_graph.as_default():
+        temp = tf.multiply(bump_vector, poly_vector)
+        net_output = tf.matmul(temp, tf.constant(value=np.ones([N + 1, 1]), shape=[N + 1, 1], dtype=tf.float64))
+
+    # Create master which will train and evaluate spline polynomial network.
+    master = NetMaster(tf_graph=tf_graph, function=func, net_output=net_output,
+                       input_placeholder=input_PH, output_placeholder=output_PH,
+                       sampling_resolution=sampling_res, learning_rate=learning_rate,
+                       trainable_net=True, adaptive_mode=True, poly_list=poly_list, bump_list=bump_list)
+
+    mse_before_training = master.calc_mse(func)
+    plt.figure(1)
+
+    # Plotting
+    range_start = 0
+    half_range_width = 1.0 / (2 * float(N))
+    whole_range_inputs = np.arange(0, 1.001, 0.001)
+    for index in range(N + 1):
+        if index == 0:
+            inputs = np.arange(0, half_range_width, 0.001)
+            range_start = half_range_width
+        elif index == N:
+            inputs = np.arange(range_start, 1.001, 0.001)
+        else:
+            inputs = np.arange(range_start, range_start + 2 * half_range_width, 0.001)
+            range_start += 2 * half_range_width
+
+        plt.plot(inputs, eval_sympy_polynomial_vector(inputs, sympy_taylor_dict[index]), color='r', linewidth=1.0)
+        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='y', linewidth=1.0)
+
+    inputs = np.arange(0, 1.001, 0.001)
+    plt.plot(inputs, func(inputs), color='b', linewidth=1.0)
+
+    if mse_before_training < 10:
+        plt.plot(inputs, master.evaluate(inputs), color='g', linewidth=1.0)
+
+    master.train(print_to_console=True)
+
+    for index in range(N + 1):
+        plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='m', linewidth=1.0)
+
+    mse_after_training = master.calc_mse(func)
+    if mse_after_training < 10:
+        plt.plot(inputs, master.evaluate(inputs), color='c', linewidth=1.0)
+
+    if save_path == None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+        plt.clf()
+
+    plt.figure(2)
+    plt.plot(range(len(master.loss_list)), master.loss_list)
+    plt.yscale('log')
+    if not save_path == None:
+        plt.savefig(save_path.replace('.pdf', '_LOSS.pdf'))
+
+    plt.clf()
+
+    return mse_before_training, mse_after_training
+
+
 if __name__ == '__main__':
 
-    ### BASIC EXAMPLES
+    '''BASIC EXAMPLES'''
     #--------------------------------------------------
     # ~~ X SQUARED
     # example_x_squared()
 
+
     # --------------------------------------------------
     # ~~ X TIMES Y
     # example_x_times_y()
+
 
     # --------------------------------------------------
     # ~~ NORMAL POLYNOMIAL
     # bef, aft = example_polynomial([0,0,0,0,0,0,0,1], sampling_resolution=1e-7,
     #                    learning_rate=1e-6, net_degree=3, trainable=True)
 
+
     # --------------------------------------------------
     # ~~ TAYLOR INITIALIZED POLYNOMIAL
     # coeffs,taylor_poly = example_taylor(taylor_x0=1, polynomial_degree=8, print_to_console=True)
     # example_polynomial(coeffs, sampling_resolution=1e-7, sympy_poly=taylor_poly, net_degree=6, tf_squaring_modules=True,
     #                    trainable=False)
+
 
     # --------------------------------------------------
     # ~~ SPLINE BASED ON FUNCTION
@@ -655,31 +854,51 @@ if __name__ == '__main__':
     #                                                             train_polynomial=False, train_bumps=True)
     # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
 
+
     # --------------------------------------------------
     # ~~ BUMPS
     # example_bumps()
 
     # --------------------------------------------------
-    # ~~ POWER POLYNOMIAL
-    # coeffs, taylor_poly = example_taylor(taylor_x0=0.5, polynomial_degree=4, print_to_console=True)
-    # example_power_polynomial(coefficients=coeffs, learning_rate=1e-13, sampling_resolution=1e-7,
-    #                         sympy_poly=taylor_poly, trainable=True, ud_relus=False)
-    #
-    #
-    # --------------------------------------------------
     # ~~ POWER SPLINE BASED ON FUNCTION
-    mse_before_training, mse_after_training = spline_power_polynomial(N=3, taylor_degree=4, sampling_res=1e-6,learning_rate=1e-3,
-                                                                      ud_relus=False, train_polynomial=True, train_bumps=True)
-    print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    # mse_before_training, mse_after_training = spline_tf_polynomial(N=3, taylor_degree=4, sampling_res=1e-7,learning_rate=1e-3,
+    #                                                                   ud_relus=False, train_polynomial=False, train_bumps=True)
+    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    #
+    # mse_before_training, mse_after_training = spline_tf_polynomial(N=3, taylor_degree=4, sampling_res=5e-6,learning_rate=1e-3,
+    #                                                                   ud_relus=False, train_polynomial=True, train_bumps=True,
+    #                                                                taylor_init=False)
+    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
 
-    mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, sampling_res=1e-6,learning_rate=1e-3,
-                                                                composite_degree=6, yar_init=True, train_polynomial=True, train_bumps=True)
-    print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
 
-    ### AUTOMATIONS
+    # -------------------------------------------------
+    # ~~ RIGID BUMPS
+    # example_rigid_bumps()
+
+
+    '''AUTOMATIONS'''
     # spline_automation('C:\\Users\\navea\\Desktop\\yarotsky_automation_spline')
     # --------------------------------------------------
     # normal_polynomial_automation('C:\\Users\\navea\\Desktop\\yarotsky_automation_normal')
     # --------------------------------------------------
+
+
+    '''SECTION 8'''
+    # oOoOoOoO  8A1  oOoOoOoO
+    # mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
+    #                                                                learning_rate=1e-3, ud_relus=False, taylor_init = True,
+    #                                                               train_polynomial=True, train_bumps=True)
+    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+
+    # oOoOoOoO  8A2  oOoOoOoO
+    # mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
+    #                                                               learning_rate=1e-3, ud_relus=False, taylor_init=False,
+    #                                                               train_polynomial=True, train_bumps=True)
+    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+
+    # oOoOoOoO  8B  oOoOoOoO
+    mse_before_training, mse_after_training = section_8B(N=3, taylor_degree=4, sampling_res=1e-7,
+                                                         learning_rate=1e-3, ud_relus=False)
+    print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
 
     pass
