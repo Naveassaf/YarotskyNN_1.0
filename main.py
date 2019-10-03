@@ -9,7 +9,7 @@ from adaptive_polynomial import AdaptivePolynomial
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import tensorflow as tf
 import sympy.parsing.sympy_parser as parser
 import sympy as sy
 
