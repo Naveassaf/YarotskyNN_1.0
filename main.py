@@ -288,7 +288,7 @@ def example_rigid_bumps():
     # Graph polynomial function
     inputs = np.arange(0, 1, 0.001)
     plt.figure(1)
-    out = master.evaluate(inputs, node=bump2.final_output)
+    out = master.evaluate(inputs, node=bump0.final_output)
     plt.plot(inputs, out, color='r')
     out = master.evaluate(inputs, node=bump1.final_output)
     plt.plot(inputs, out, color='g')
@@ -302,7 +302,7 @@ def example_rigid_bumps():
     master.train()
 
     plt.figure(2)
-    out = master.evaluate(inputs, node=bump2.final_output)
+    out = master.evaluate(inputs, node=bump0.final_output)
     plt.plot(inputs, out, color='r')
     out = master.evaluate(inputs, node=bump1.final_output)
     plt.plot(inputs, out, color='g')
@@ -878,7 +878,7 @@ if __name__ == '__main__':
 
     # -------------------------------------------------
     # ~~ RIGID BUMPS
-    # example_rigid_bumps()
+    example_rigid_bumps()
 
 
     '''AUTOMATIONS'''
