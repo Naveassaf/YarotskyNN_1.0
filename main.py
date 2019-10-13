@@ -128,7 +128,7 @@ def example_x_times_y():
     plt.show()
 
 def example_polynomial(coefficients, net_degree=10, learning_rate=1e-3, sampling_resolution=1e-7, yarotsky_init=True,
-                       save_path=None, sympy_poly=None, tf_squaring_modules=False, trainable=True):
+                       save_path=None, sympy_poly=None, tf_squaring_modules=False, trainable=True, video_directory=None):
     '''
     Function of creating a polynomial NeuralNetwork given the polynomial's coefficients.
 
@@ -163,7 +163,7 @@ def example_polynomial(coefficients, net_degree=10, learning_rate=1e-3, sampling
 
     # Train and reevaluate network
     if trainable:
-        master.train()
+        master.train(video_directory=video_directory)
 
     out = master.evaluate(inputs)
     plt.plot(inputs, out, color='c')
@@ -181,9 +181,10 @@ def example_polynomial(coefficients, net_degree=10, learning_rate=1e-3, sampling
 
     if save_path == None:
         plt.show()
-    else:
-        plt.savefig(save_path.replace('.pdf', '_LOSS.pdf'))
-        plt.clf()
+    # TODO uncomment
+    # else:
+    #     plt.savefig(save_path.replace('.pdf', '_LOSS.pdf'))
+    #     plt.clf()
 
     final_mse = master.calc_mse(func)
 
@@ -314,7 +315,8 @@ def example_rigid_bumps():
     plt.show()
 
 def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
-                      yar_init=True, tf_squaring_modules=False, train_polynomial=True, train_bumps=True):
+                      yar_init=True, tf_squaring_modules=False, train_polynomial=True, train_bumps=True,
+                      video_directory=None):
     tf_graph = tf.Graph()
 
     with tf_graph.as_default():
@@ -378,7 +380,8 @@ def spline_polynomial(N, taylor_degree, composite_degree, save_path=None, sampli
     if mse_before_training < 10:
         plt.plot(inputs, master.evaluate(inputs), color = 'g', linewidth=1.0)
 
-    master.train(print_to_console=True)
+    master.train(print_to_console=True, video_directory=video_directory, bump_dict=bump_dict,
+                 taylor_dict=sympy_taylor_dict)
 
 
     #TODO ERASE:
@@ -608,7 +611,7 @@ def yarotsky_init_debug():
 
 
 def section_8A(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
-                      ud_relus=False, train_polynomial=True, train_bumps=True, taylor_init=True):
+                      ud_relus=False, train_polynomial=True, train_bumps=True, taylor_init=True, video_directory=None):
     tf_graph = tf.Graph()
 
     with tf_graph.as_default():
@@ -684,7 +687,7 @@ def section_8A(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rat
     if mse_before_training < 10:
         plt.plot(inputs, master.evaluate(inputs), color='g', linewidth=1.0)
 
-    master.train(print_to_console=True)
+    master.train(print_to_console=True, video_directory=video_directory, bump_dict=bump_dict, taylor_dict=sympy_taylor_dict)
 
     for index in range(N + 1):
         plt.plot(inputs, master.evaluate(inputs, bump_dict[index].final_output), color='m', linewidth=1.0)
@@ -710,7 +713,7 @@ def section_8A(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rat
     return mse_before_training, mse_after_training
 
 def section_8B(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rate=1e-3,
-                      ud_relus=False):
+                      ud_relus=False, video_directory=None):
     tf_graph = tf.Graph()
 
     with tf_graph.as_default():
@@ -746,7 +749,7 @@ def section_8B(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rat
 
         poly_dict[index] = AdaptivePolynomial(naming_postfix='poly' + str(index), coefficients=current_coeffs,
                                                 ud_relus=ud_relus, input_placeholder=input_PH, graph=tf_graph,
-                                              sympy_expr=sympy_expr)
+                                                sympy_expr=sympy_expr)
 
         poly_list.append(poly_dict[index])
         poly_outputs.append(poly_dict[index].final_output)
@@ -792,7 +795,7 @@ def section_8B(N, taylor_degree, save_path=None, sampling_res=1e-7, learning_rat
         plt.plot(inputs, master.evaluate(inputs), color='g', linewidth=1.0)
 
     # Train net
-    master.train(print_to_console=True)
+    master.train(print_to_console=True, video_directory=video_directory, bump_dict=bump_dict, taylor_dict=sympy_taylor_dict)
 
     # Draw new hats and taylor values after training
     for index in range(N + 1):
@@ -837,8 +840,9 @@ if __name__ == '__main__':
 
     # --------------------------------------------------
     # ~~ NORMAL POLYNOMIAL
-    # bef, aft = example_polynomial([0,0,0,0,0,0,0,1], sampling_resolution=1e-7,
-    #                    learning_rate=1e-6, net_degree=3, trainable=True)
+    # bef, aft = example_polynomial([1,1, 1, 1, 1, 1, 1, 1], sampling_resolution=1e-7,
+    #                    learning_rate=1e-4, net_degree=3,
+    #                     trainable=True, video_directory='C:\\Users\\navea\\Desktop\\video_test')
 
 
     # --------------------------------------------------
@@ -850,10 +854,11 @@ if __name__ == '__main__':
 
     # --------------------------------------------------
     # ~~ SPLINE BASED ON FUNCTION
-    # mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, composite_degree=6,
-    #                                                             sampling_res=1e-6,learning_rate=1e-3,
-    #                                                             train_polynomial=True, train_bumps=False)
-    # print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
+    mse_before_training, mse_after_training = spline_polynomial(N=5, taylor_degree=4, composite_degree=5,
+                                                                sampling_res=1e-7,learning_rate=1e-4,
+                                                                train_polynomial=True, train_bumps=False, yar_init=True,
+                                                                video_directory='C:\\Users\\navea\\Desktop\\video_test')
+    print("Init MSE = {}, Final MSE = {}".format(mse_before_training, mse_after_training))
     # mse_before_training, mse_after_training = spline_polynomial(N=3, taylor_degree=4, composite_degree=6,
     #                                                             sampling_res=1e-6,learning_rate=1e-3,
     #                                                             train_polynomial=False, train_bumps=True)
@@ -890,20 +895,24 @@ if __name__ == '__main__':
 
     '''SECTION 8'''
     # oOoOoOoO  8A1  oOoOoOoO
-    mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
-                                                                   learning_rate=1e-3, ud_relus=False, taylor_init = True,
-                                                                  train_polynomial=True, train_bumps=True)
-    print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
-
+    # mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=5, sampling_res=1e-7,
+    #                                                     learning_rate=1e-3, ud_relus=False, taylor_init = True,
+    #                                                     train_polynomial=True, train_bumps=True,
+    #                                                     video_directory='C:\\Users\\navea\\Desktop\\video_test')
+    #
+    # print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
+    #
     # oOoOoOoO  8A2  oOoOoOoO
-    mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
-                                                                  learning_rate=1e-3, ud_relus=False, taylor_init=False,
-                                                                  train_polynomial=True, train_bumps=True)
-    print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
+    # mse_before_training, mse_after_training = section_8A(N=3, taylor_degree=4, sampling_res=1e-7,
+    #                                                               learning_rate=1e-3, ud_relus=False, taylor_init=False,
+    #                                                               train_polynomial=True, train_bumps=True,
+    #                                                             video_directory='C:\\Users\\navea\\Desktop\\video_test')
+    # print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
 
     # oOoOoOoO  8B  oOoOoOoO
-    mse_before_training, mse_after_training = section_8B(N=3, taylor_degree=4, sampling_res=1e-7,
-                                                         learning_rate=1e-3, ud_relus=False)
-    print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
+    # mse_before_training, mse_after_training = section_8B(N=3, taylor_degree=4, sampling_res=1e-7,
+    #                                                      learning_rate=1e-3, ud_relus=False,
+    #                                                      video_directory='C:\\Users\\navea\\Desktop\\video_test')
+    # print("Init MSE = {}\t\tFinal MSE = {}\n\n\n".format(mse_before_training, mse_after_training))
 
     pass

@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import Additional_Sources.UndyingReLU as UDrelu
 import math
+import matplotlib.pyplot as plt
 
 #CONSTANTS
 from x_squared import USE_UNDYING_RELU
@@ -18,6 +19,9 @@ MANUAL_LEARNING_RATE_DECAY_COEF = 0.5
 LOSS_PRINT_ITERATION_RANGE = 50
 DEFAULT_MSE_RESOLUTION = 1e-3
 ADAPTIVE_TAYLOR_RECALC_FREQ = 1000
+VIDEO_RESOLUTION = 100
+BUMP_PLOT_THRESH = 0.02
+TAYLOR_PLOT_THRESH = 0.4
 
 class NetMaster():
     def __init__(self, tf_graph,function, net_output, input_placeholder, output_placeholder,
@@ -126,7 +130,9 @@ class NetMaster():
         # Output is returned as [1,1] array. Returns its only value
         return output
 
-    def train(self, print_to_console=PRINT_TO_CONSOLE, print_frequecy=ITERATIONS_PER_PRINT):
+    def train(self, print_to_console=PRINT_TO_CONSOLE, print_frequecy=ITERATIONS_PER_PRINT, video_directory=None,
+              bump_dict=None, taylor_dict=None):
+
         # Prepare sets for training (created only when training to save time for hardcoded-net evaluation)
         self.data_sets = self.prep_sets()
 
@@ -135,6 +141,9 @@ class NetMaster():
 
         # Perform training batches
         samples_since_resurrection = 0
+
+        # Evenly spaced samples for video
+        video_inputs = np.arange(0, 1.001, 0.001)
 
         for iteration in range(self.iteration_count):
             # Get vectors of (x,y) tuples with for the current iteration
@@ -149,7 +158,7 @@ class NetMaster():
 
             # Maintenance of UD Relus in case neural net is using them
             if self.using_ud_relu:
-                self.feed_dict = UDrelu.add_to_feed_dict(feed_dict)
+                self.feed_dict = UDrelu.add_to_feed_dict(self.feed_dict)
 
                 # Resurrect Relus every UDRELU_RESURRECTION_FREQ samples
                 if samples_since_resurrection >= UDRELU_RESURRECTION_FREQ:
@@ -157,6 +166,30 @@ class NetMaster():
                     samples_since_resurrection = 0
                 else:
                     samples_since_resurrection += self.batch_size
+
+            if (iteration % VIDEO_RESOLUTION == 0) and (video_directory != None):
+                # Save image to video file
+                plt.clf()
+                print('Saving photo: {}'.format(iteration / VIDEO_RESOLUTION))
+
+                # Plot updated bumps
+                for index in bump_dict.keys():
+                    bump_outputs = np.array(self.evaluate(video_inputs, bump_dict[index].final_output))
+                    non_zero_indices = np.where(bump_outputs > BUMP_PLOT_THRESH)[0]
+                    plt.plot(video_inputs[non_zero_indices], bump_outputs[non_zero_indices], color='m', linewidth=1.0)
+                    if taylor_dict != None:
+                        taylor_indices = np.where(bump_outputs > TAYLOR_PLOT_THRESH)[0]
+                        plt.plot(video_inputs[taylor_indices],
+                                 eval_sympy_polynomial_vector(video_inputs[taylor_indices], taylor_dict[index]),
+                                 color='r', linewidth=1.0)
+
+
+
+
+                plt.plot(video_inputs, self.function(video_inputs), color='b')
+                plt.plot(video_inputs, self.evaluate(video_inputs), color='c')
+                plt.savefig(video_directory + '\\{}.png'.format(int(iteration / VIDEO_RESOLUTION)))
+
 
             # Calculate and display loss
             try:
@@ -303,5 +336,13 @@ class NetMaster():
         mse = np.average((test_outputs -function(test_sampling_points))**2)
 
         return mse
+
+
+def eval_sympy_polynomial_vector(input_array, sympy_polynomial):
+        poly_outputs = []
+        for x in input_array:
+            poly_outputs.append(sympy_polynomial.eval(x))
+        return poly_outputs
+
 
 
