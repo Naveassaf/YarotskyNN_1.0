@@ -878,7 +878,7 @@ if __name__ == '__main__':
 
     # -------------------------------------------------
     # ~~ RIGID BUMPS
-    example_rigid_bumps()
+    # example_rigid_bumps()
 
 
     '''AUTOMATIONS'''
